@@ -1,0 +1,168 @@
+#include "pch.h"
+#include <iostream>
+#include <fstream>
+#include <cstdio>
+#include <stdio.h> //2-tainio failo skaitymui 
+#include <string>
+#include <bitset>//paverst i bitus
+using namespace std;
+
+void skaitymas(char A[])
+{
+	FILE* tdi;
+	tdi = fopen("decryptor.bin", "rb"); // rb kad galetu skaityt dvejetainius skaicius
+	for (int i = 0; i < 256; i++)
+	{
+		fread(A + i, 1, 1, tdi);//skaito viena reiksme po viena karta
+		if (feof(tdi)) // jei neber ko skaityt, baigia
+			break;
+	}
+	fclose(tdi);
+}
+//Desimtaine raides israiska i dvejetaini konvertuojam
+string dec_to_bin(int A)
+{
+	string B;
+	B = bitset<8>(A).to_string();
+	return B;
+}
+//Dvejetainio skaicius paskutiniu 4 bitu priskyrimas i Rx,vertimas i desimtaini
+int bin_to_Rx(string A)
+{
+	int tarpinis = 1;
+	int B = 0;
+	for (int i = 7; i >= 4; i--)
+	{
+		if (A[i] == '1')
+			B += tarpinis;
+		tarpinis = tarpinis * 2;
+	}
+	return B;
+}
+//Dvejetainio skaicius pirmu 4 bitu priskyrimas i Ry, vertimas i desimtaini
+int bin_to_Ry(string A)
+{
+	int B = 0;
+	int tarpinis = 1;
+	for (int i = 3; i >= 0; i--)
+	{
+		if (A[i] == '1')
+			B += tarpinis;
+		tarpinis = tarpinis * 2;
+	}
+	return B;
+}
+
+int main()
+{
+	char prog_mem[256]; // dekriptoriaus elementu masyvas
+	unsigned char regs[16]; //registru masyvas
+	int flag1 = 0/*isvedinmui*/, flag = 0 /*haltas*/, r = 0; //vienas, jei failas baigtas skaityti, r registrai
+	int Rx, Ry;
+	string bin; // bitu masyvas
+	ifstream input("q1_encr.txt");
+	ofstream output("output.txt");
+	skaitymas(prog_mem);//prog men dekriptorius
+	while (flag == 0)
+	{
+		switch ((int)prog_mem[r])
+		{
+			//Padidinam Rx vienetu
+		case 1:
+			bin = dec_to_bin(prog_mem[r + 1]);
+			Rx = bin_to_Rx(bin);
+			regs[Rx]++;
+			break;
+			//Sumazinam Rx vienetu
+		case 2:
+			bin = dec_to_bin(prog_mem[r + 1]);
+			Rx = bin_to_Rx(bin);
+			regs[Rx]--;
+			break;
+			//Kopijuojam Ry turini i registra Rx
+		case 3:
+			bin = dec_to_bin(prog_mem[r + 1]);
+			Rx = bin_to_Rx(bin);
+			Ry = bin_to_Ry(bin);
+			regs[Rx] = regs[Ry];
+			break;
+			//Kopijuoja baito konstanta i registra R0
+		case 4:
+			regs[0] = (int)prog_mem[r + 1];
+			break;
+			//Registro Rx postumis i kaire per viena bita
+		case 5:
+			regs[(int)prog_mem[r + 1]] = regs[(int)prog_mem[r + 1]] << 1;
+			break;
+			//Registro Rx postumis i desine per viena bita
+		case 6:
+			regs[(int)prog_mem[r + 1]] = regs[(int)prog_mem[r + 1]] >> 1;
+			break;
+			//Suolis santykiniu adresu pridedant konstanta su zenklu prie komandu skaitiklio
+		case 7:
+			r += (int)prog_mem[r + 1] - 2; //konstanta pridedu prie skaitiklio(r),-2 nes poto as pridedu 2,kad isliktu tenpat
+			break;
+			//Suolis santykiniu adresu jei yra 0  pozymis
+		case 8:
+			if (flag == 0)
+				r += (int)prog_mem[r + 1] - 2;
+			break;
+			//Suolis santykiniu adresu jei nera 0 pozymio
+		case 9:
+			if (flag == 1)
+				r += (int)prog_mem[r + 1] - 2;
+			break;
+			//Suolis santykiniu adrresu jei yra failo pabaigos pozymis
+		case 10:
+			if (flag1 == 1)
+				r += (int)prog_mem[r + 1] - 2;
+			break;
+			//baigiamas darbas
+		case 11:
+			flag = 1;
+			break;
+			//Sudetis tarp registru
+		case 12:
+			bin = dec_to_bin(prog_mem[r + 1]);
+			Rx = bin_to_Rx(bin);
+			Ry = bin_to_Ry(bin);
+			regs[Rx] = regs[Rx] + regs[Ry];
+			break;
+			//Atimtis tarp registru
+		case 13:
+			bin = dec_to_bin(prog_mem[r + 1]);
+			Rx = bin_to_Rx(bin);
+			Ry = bin_to_Ry(bin);
+			regs[Rx] = regs[Rx] - regs[Ry];
+			break;
+			//Isskirtinio arba operacija tarp registru
+		case 14:
+			bin = dec_to_bin(prog_mem[r + 1]);
+			Rx = bin_to_Rx(bin);
+			Ry = bin_to_Ry(bin);
+			regs[Rx] = regs[Rx] ^ regs[Ry];
+			break;
+			//Arba operacija tarp registru
+		case 15:
+			bin = dec_to_bin(prog_mem[r + 1]);
+			Rx = bin_to_Rx(bin);
+			Ry = bin_to_Ry(bin);
+			regs[Rx] = regs[Rx] | regs[Ry];
+			break;
+			//Nustato failo pabaigos pozymi jei pasiekta failo pabaiga
+		case 16:
+			input >> regs[(int)prog_mem[r + 1]];
+			if (input.eof()) //ar pasibaige
+				flag1 = 1;
+			break;
+			//Registro Rx turini isveda i faila
+		case 17:
+			output << regs[(int)prog_mem[r + 1]];
+			break;
+		}
+		r = r + 2;//perejimas prie kito case'o
+	}
+	input.close();
+	output.close();
+	system("PAUSE");
+}
