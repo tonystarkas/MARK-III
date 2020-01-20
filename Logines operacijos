@@ -1,0 +1,40 @@
+#include "pch.h"
+#include <iostream>
+#include <fstream>
+#include <sstream>
+using namespace std;
+
+int pirma_schema(int a, int b)
+{
+	return (~a & b) | (a & ~b);
+}
+int antra_schema(int a, int b)
+{
+	return ~(~(a&(~b))&(~(~a&b)));
+}
+int trecia_schema(int a, int b)
+{
+	return (a | b) & (~(a & b));
+}
+int ketvirta_schema(int a, int b)
+{
+	return (a | b) & (~a | ~b);
+}
+
+
+int main(int a, char* b[])
+{
+	int C, B;
+	stringstream switch_1(b[1]);
+	switch_1 >> C;
+	stringstream switch_2(b[2]);
+	switch_2 >> B;
+	ofstream Failas("rezultatas.csv");
+	Failas << "Daumantas" << "," << "Margelis" << "," << "ITF 18/2" << endl;
+	Failas << C << "," << B << endl;
+	Failas << "XOR1 (~a & b) | (a & ~b)"<< "," << "XOR2 ~(~(a&(~b))&(~(~a&b)))"<< "," << "XOR3 (a | b) & (~(a & b))"<< "," << "XOR4 (a | b) & (~a | ~b)"<< endl;
+	Failas << pirma_schema(C, B) << ",";
+	Failas << antra_schema(C, B) << ",";
+	Failas << trecia_schema(C, B) << ",";
+	Failas << ketvirta_schema(C, B) << ",";
+}
